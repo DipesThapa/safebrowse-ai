@@ -21,7 +21,7 @@ function render(list){
 
 chrome.storage.sync.get({enabled:true, allowlist:[]}, (cfg)=>{
   enabledEl.checked = cfg.enabled;
-  render(cfg.allowlist);
+  render(cfg.allowlist||[]);
 });
 
 enabledEl.addEventListener('change', ()=>{
@@ -29,13 +29,10 @@ enabledEl.addEventListener('change', ()=>{
 });
 
 addAllow.addEventListener('click', ()=>{
-  const host = (allowHost.value || '').trim();
+  const host = (allowHost.value||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'');
   if(!host) return;
   chrome.storage.sync.get({allowlist:[]}, (cfg)=>{
     const list = Array.from(new Set([...(cfg.allowlist||[]), host]));
-    chrome.storage.sync.set({allowlist:list}, ()=>{
-      allowHost.value = '';
-      render(list);
-    });
+    chrome.storage.sync.set({allowlist:list}, ()=>{ allowHost.value=''; render(list); });
   });
 });
