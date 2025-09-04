@@ -2,7 +2,7 @@
   const BLOCK_WORDS = ["explicit","nsfw","xxx","torrent"]; // MVP heuristic
 
   function getHost(){
-    try { return location.hostname.replace(/^www\./,'').toLowerCase(); } catch(e){ return ''; }
+    try { return location.hostname.replace(/^www\./,'').toLowerCase(); } catch{ return ''; }
   }
 
   async function loadBlocklist(){
