@@ -54,3 +54,8 @@ Limitations
 - Contributing guide: see `CONTRIBUTING.md`
 - Security policy: see `SECURITY.md` (report via GitHub advisories)
 - Support: see `SUPPORT.md`
+
+## Chrome Web Store
+- Publishing workflow: see `.github/workflows/publish-webstore.yml`
+- Setup + credentials: `docs/WEBSTORE.md`
+- Listing content template: `docs/STORE_LISTING.md`

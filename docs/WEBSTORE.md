@@ -22,19 +22,21 @@ In your repository Settings → Secrets and variables → Actions, add:
 
 ## 4) Trigger Publishing
 - Tag a release (e.g., `v0.2.0`) or run the workflow manually: Actions → “Publish to Chrome Web Store” → Run workflow.
-- The workflow builds a curated `extension.zip` and uploads + publishes it.
+- The workflow builds a curated `extension.zip` (icons/data/src/manifest only) and uploads + publishes it.
 
 ## 5) Listing Requirements
 - Title: Safeguard (SafeBrowse AI)
 - Short description: Privacy‑first web safety. Block adult sites, enforce SafeSearch, blur risky images/videos.
 - Long description: Use README highlights (privacy‑on‑device, features, usage).
 - Category: Productivity or Family
-- Screenshots: 1280×800 or 640×400 (popup, interstitial, allowlist, aggressive mode)
+- Screenshots: 1280×800 or 640×400 (popup, interstitial, allowlist, aggressive mode). Place files under `assets/store/`.
 - Privacy policy: Link to `PRIVACY.md` in GitHub (public URL)
 - Data disclosure: “No data is collected” (no telemetry)
+
+## 6) Listing Content Template
+See `docs/STORE_LISTING.md` for a ready‑to‑paste title, descriptions, and screenshot list.
 
 ## Notes
 - Manifest version is `0.2.0` (bump for each submission).
 - The workflow zips only required files; dev/backup files are excluded.
 - Large blocklists are supported via import; dynamic DNR limits apply.
-
