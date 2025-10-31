@@ -120,6 +120,36 @@
     }catch(_e){ return false; }
   }
 
+  function showFullscreenOverlay(reason){
+    try{
+      if (document.getElementById('sg-fs-overlay')) return;
+      const host = getHost();
+      if (host && sessionStorage.getItem('sg-ov-video:' + host) === '1') return;
+      const wrap = document.createElement('div');
+      wrap.id = 'sg-fs-overlay';
+      Object.assign(wrap.style, {
+        position: 'fixed', inset: '0', zIndex: 2147483647,
+        background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'system-ui, sans-serif', color: '#fff'
+      });
+      const box = document.createElement('div');
+      Object.assign(box.style, { textAlign: 'center', maxWidth: '560px', padding: '16px', background: 'rgba(0,0,0,0.35)', borderRadius: '8px' });
+      const h = document.createElement('h2'); h.textContent = 'Blocked by Safeguard'; h.style.margin='0 0 8px'; box.appendChild(h);
+      const p = document.createElement('div'); p.textContent = reason || 'Video hidden on this site'; p.style.opacity='0.9'; p.style.margin='0 0 12px'; box.appendChild(p);
+      const btn = document.createElement('button');
+      let remaining = 5; btn.disabled = true;
+      const update = ()=> { btn.textContent = remaining>0 ? `Show video (${remaining})` : 'Show video'; };
+      update();
+      const t = setInterval(()=>{ remaining--; update(); if (remaining<=0){ clearInterval(t); btn.disabled=false; } }, 1000);
+      btn.onclick = ()=>{ try{ if(host) sessionStorage.setItem('sg-ov-video:'+host, '1'); }catch(_e){}; wrap.remove(); };
+      Object.assign(btn.style, { padding:'8px 12px', fontSize:'14px' });
+      box.appendChild(btn);
+      wrap.appendChild(box);
+      document.documentElement.appendChild(wrap);
+    }catch(_e){}
+  }
+
 
   const scanned = new WeakSet();
   function evaluateMedia(el){
@@ -311,6 +341,14 @@
       }, true);
       // Periodic safety scan (some apps replace DOM trees frequently)
       setInterval(attachAll, 2000);
+      // Fallback: if no accessible <video> is found or sampling is blocked (DRM/closed shadow), show full-screen overlay on streaming hosts
+      setTimeout(()=>{ try{
+        const vids = collectVideosDeep(document);
+        const anyMasked = vids.some(v=>v && v.__sg_masked);
+        if (!anyMasked && isStreamingHost()){
+          showFullscreenOverlay('Streaming video hidden (aggressive mode)');
+        }
+      }catch(_e){} }, 2500);
     }
   }
 
