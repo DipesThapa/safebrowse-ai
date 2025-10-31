@@ -1,11 +1,16 @@
 (function(){
-  // Expanded textual heuristic for adult content (non-exhaustive, on-device)
-  const BLOCK_WORDS = [
-    "porn","xxx","nsfw","explicit","adult","hentai","nude","nudity","sex",
-    "pornography","erotic","hardcore","softcore","fetish","bdsm","camgirl","cam boy",
-    "onlyfans","brazzers","xvideos","xhamster","redtube","youporn","spankbang",
-    "blowjob","handjob","cum","orgasm","anal","threesome","milf","hentai","teen"
+  // Advanced textual heuristic (non-exhaustive, on-device). Balanced for privacy and speed.
+  const KW_STRONG = [
+    'porn','xxx','hentai','onlyfans','pornhub','xvideos','xnxx','xhamster','redtube','youporn','brazzers','spankbang',
+    'pornographie','pornografía','porno','sex tape','live sex','webcam sex','camgirl','cam boy',
+    'nude','nudity','hardcore','softcore','fetish','bdsm','orgasm','blowjob','handjob','anal','threesome','milf','teen'
   ];
+  const KW_MEDIUM = [
+    'adult','nsfw','explicit','erotic','escort','models','amateur','nsfw', '18+', 'age verification'
+  ];
+  const HOST_HINTS = ['porn','xxx','sex','hentai','xh','xv','xnxx','onlyfans','cam'];
+  const AGE_GATE_RX = /(18\+|adults? only|are you 18|age verification|enter if 18)/i;
+  const NEGATIVE_RX = /(sex education|sexual education|sex ed|reproductive health|biology|anatomy|consent education|porn addiction help|porn recovery|filter porn|block porn|family safety|child safety|parental control|safesearch|wikipedia|encyclopedia|news report)/i;
 
   function getHost(){
     try { return location.hostname.replace(/^www\./,'').toLowerCase(); } catch{ return ''; }
@@ -20,9 +25,39 @@
     } catch(_e){ return {domains:[]}; }
   }
 
-  function shouldBlock(text){
+  function scoreFromText(text){
     const lower = (text||'').toLowerCase();
-    return BLOCK_WORDS.some(w => lower.includes(w));
+    let s = 0;
+    if (AGE_GATE_RX.test(lower)) s += 5;
+    if (NEGATIVE_RX.test(lower)) s -= 4; // de-emphasize educational/safety contexts
+    // strong terms (higher weight)
+    for (const w of KW_STRONG) { if (lower.includes(w)) s += 3; }
+    // medium terms (lower weight)
+    for (const w of KW_MEDIUM) { if (lower.includes(w)) s += 1; }
+    return s;
+  }
+
+  function scoreFromTitleAndMeta(){
+    let s = 0;
+    try{ s += scoreFromText(document.title||''); }catch(_e){}
+    try{
+      const metas = document.querySelectorAll('meta[name="description"], meta[name="keywords"], meta[property="og:title"], meta[property="og:description"]');
+      metas.forEach(m=>{ const v=m.content||''; s += Math.min(6, scoreFromText(v)); });
+    }catch(_e){}
+    return s;
+  }
+
+  function scoreFromUrl(){
+    let s = 0;
+    try{
+      const { hostname, pathname } = new URL(location.href);
+      if (/\.xxx$/i.test(hostname)) s += 8;
+      const hostL = hostname.toLowerCase();
+      if (HOST_HINTS.some(h=>hostL.includes(h))) s += 6;
+      const pathL = (pathname||'').toLowerCase();
+      if (/(\/porn|\/xxx|\/hentai|\/adult|\/sex)/.test(pathL)) s += 2;
+    }catch(_e){}
+    return s;
   }
 
   // --- On-screen media masking (images/videos) ---
@@ -81,7 +116,10 @@
     if (!el || scanned.has(el)) return false; scanned.add(el);
     // Heuristic: use surrounding text/attributes for a fast signal
     const t = textAround(el);
-    return shouldBlock(t);
+    // Use a reduced threshold for element-level masking
+    const cfgSens = window.__sg_sensitivity || 60;
+    const textThreshold = Math.max(3, Math.floor((12 - 6*(cfgSens/100)) * 0.6));
+    return scoreFromText(t) >= textThreshold;
   }
 
   function initMediaFilter(){
@@ -212,7 +250,13 @@
     if(BL.domains && BL.domains.includes(host)) { showInterstitial("domain blocklist"); return; }
 
     const text = document.body && document.body.innerText ? document.body.innerText.slice(0, 40000) : "";
-    if(shouldBlock(text)) { showInterstitial("keyword heuristic match"); return; }
+    const urlScore = scoreFromUrl();
+    const metaScore = scoreFromTitleAndMeta();
+    const bodyScore = Math.min(12, scoreFromText(text));
+    const total = urlScore + metaScore + bodyScore;
+    const sens = Number(cfg.sensitivity)||60; window.__sg_sensitivity = sens;
+    const threshold = 12 - Math.floor(6 * (sens/100)); // 12..6
+    if(total >= threshold) { showInterstitial("advanced heuristic score"); return; }
 
     // No page-level block: still protect by masking on-screen images/videos
     initMediaFilter();
