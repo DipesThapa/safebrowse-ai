@@ -1,5 +1,11 @@
 (function(){
-  const BLOCK_WORDS = ["explicit","nsfw","xxx","torrent"]; // MVP heuristic
+  // Expanded textual heuristic for adult content (non-exhaustive, on-device)
+  const BLOCK_WORDS = [
+    "porn","xxx","nsfw","explicit","adult","hentai","nude","nudity","sex",
+    "pornography","erotic","hardcore","softcore","fetish","bdsm","camgirl","cam boy",
+    "onlyfans","brazzers","xvideos","xhamster","redtube","youporn","spankbang",
+    "blowjob","handjob","cum","orgasm","anal","threesome","milf","hentai","teen"
+  ];
 
   function getHost(){
     try { return location.hostname.replace(/^www\./,'').toLowerCase(); } catch{ return ''; }
@@ -15,8 +21,90 @@
   }
 
   function shouldBlock(text){
-    const lower = text.toLowerCase();
+    const lower = (text||'').toLowerCase();
     return BLOCK_WORDS.some(w => lower.includes(w));
+  }
+
+  // --- On-screen media masking (images/videos) ---
+  let styleInjected = false;
+  function ensureStyles(){
+    if (styleInjected) return; styleInjected = true;
+    const st = document.createElement('style');
+    st.textContent = `
+      .sg-blur { filter: blur(28px) saturate(0.6) contrast(0.8) !important; }
+      .sg-tag { position: absolute; top: 6px; left: 6px; background: rgba(185,28,28,0.9); color: #fff;
+                padding: 2px 6px; font: 12px/1 system-ui,sans-serif; border-radius: 3px; z-index: 2147483647; }
+      .sg-wrap { position: relative !important; display: inline-block; }
+    `;
+    document.documentElement.appendChild(st);
+  }
+
+  function textAround(el){
+    try{
+      const pieces = [];
+      if (el.alt) pieces.push(el.alt);
+      if (el.title) pieces.push(el.title);
+      const aria = el.getAttribute && el.getAttribute('aria-label'); if (aria) pieces.push(aria);
+      const src = (el.currentSrc || el.src || '').split(/[?#]/)[0];
+      if (src) pieces.push(src.split('/').pop()||'');
+      const fig = el.closest && el.closest('figure');
+      if (fig){ const cap = fig.querySelector('figcaption'); if (cap) pieces.push(cap.innerText||''); }
+      let sib = el.parentElement; let hops = 0;
+      while (sib && hops < 2){ pieces.push(sib.innerText||''); sib = sib.parentElement; hops++; }
+      return pieces.join(' ').slice(0, 2000);
+    }catch(_e){ return ''; }
+  }
+
+  function mask(el){
+    if (!el || el.__sg_masked) return; el.__sg_masked = true;
+    ensureStyles();
+    try {
+      const parent = el.parentElement;
+      if (parent && !parent.classList.contains('sg-wrap')){
+        const wrap = document.createElement('span');
+        wrap.className = 'sg-wrap';
+        parent.insertBefore(wrap, el);
+        wrap.appendChild(el);
+      }
+      el.classList.add('sg-blur');
+      const tag = document.createElement('span');
+      tag.className = 'sg-tag';
+      tag.textContent = 'Blocked by Safeguard';
+      const wrap2 = el.parentElement;
+      if (wrap2 && wrap2.classList.contains('sg-wrap')) wrap2.appendChild(tag);
+    } catch(_e) {}
+  }
+
+  const scanned = new WeakSet();
+  function evaluateMedia(el){
+    if (!el || scanned.has(el)) return false; scanned.add(el);
+    // Heuristic: use surrounding text/attributes for a fast signal
+    const t = textAround(el);
+    return shouldBlock(t);
+  }
+
+  function initMediaFilter(){
+    const io = new IntersectionObserver((entries)=>{
+      for (const e of entries){
+        if (!e.isIntersecting) continue;
+        const el = e.target;
+        try { if (evaluateMedia(el)) mask(el); } catch(_err){}
+      }
+    }, { root: null, threshold: 0.01 });
+
+    const sel = 'img, video';
+    document.querySelectorAll(sel).forEach(n=>io.observe(n));
+
+    const mo = new MutationObserver((muts)=>{
+      for (const m of muts){
+        m.addedNodes && m.addedNodes.forEach((n)=>{
+          if (!(n instanceof Element)) return;
+          if (n.matches && n.matches(sel)) io.observe(n);
+          n.querySelectorAll && n.querySelectorAll(sel).forEach(c=>io.observe(c));
+        });
+      }
+    });
+    mo.observe(document.documentElement, { subtree: true, childList: true });
   }
 
   function showInterstitial(reason){
@@ -78,7 +166,10 @@
     if(BL.domains && BL.domains.includes(host)) { showInterstitial("domain blocklist"); return; }
 
     const text = document.body && document.body.innerText ? document.body.innerText.slice(0, 40000) : "";
-    if(shouldBlock(text)) showInterstitial("keyword heuristic match");
+    if(shouldBlock(text)) { showInterstitial("keyword heuristic match"); return; }
+
+    // No page-level block: still protect by masking on-screen images/videos
+    initMediaFilter();
   }
 
   scan();
