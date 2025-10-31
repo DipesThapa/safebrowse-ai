@@ -11,7 +11,8 @@ export default [
       globals: { ...globals.browser, ...globals.webextensions }
     },
     rules: {
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }]
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+      "no-empty": ["warn", { allowEmptyCatch: true }]
     }
   }
 ];

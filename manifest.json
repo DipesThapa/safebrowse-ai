@@ -34,8 +34,7 @@
         "https://*/*"
       ],
       "js": [
-        "src/content.js",
-        "content.js"
+        "src/content.js"
       ],
       "run_at": "document_end"
     }
