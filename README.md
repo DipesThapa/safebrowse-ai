@@ -38,7 +38,6 @@ MIT License
 Phase 1 additions
 - Static DNR rules for common ad domains and SafeSearch (Google/Bing)
 - Dynamic DNR rules compiled from `data/blocklist.json` with allowlist overrides
-- PIN-protected settings (popup Set/Change PIN)
 
 ## Community
 - Code of Conduct: see `CODE_OF_CONDUCT.md`

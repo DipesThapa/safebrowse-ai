@@ -7,7 +7,7 @@ Safeguard is a privacy‑first browser extension. It processes content locally a
 - Local storage: Uses `chrome.storage.sync` for:
   - `enabled` (on/off setting)
   - `allowlist` (user‑added hostnames to allow)
-  - `pinHash` (hashed PIN for settings lock; SHA‑256, never the raw PIN)
+  - (no PIN or account data stored)
 - Content scanning: Heuristic checks (keywords) and lightweight DOM analysis run locally. Blocked pages show an interstitial with a temporary override option (per tab/session).
 - Permissions rationale:
   - `storage`: Save settings and allowlist.
@@ -15,4 +15,3 @@ Safeguard is a privacy‑first browser extension. It processes content locally a
 - Opt‑out: Disable the extension from the popup or remove it at any time.
 
 Questions? Open a discussion or report security issues privately via GitHub Advisories (see `SECURITY.md`).
-
