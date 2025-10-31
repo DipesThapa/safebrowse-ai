@@ -110,6 +110,16 @@
     } catch(_e) {}
   }
 
+  function isStreamingHost(host){
+    try{
+      const h = (host||getHost()||'').toLowerCase();
+      return [
+        'amazon.', 'primevideo.', 'netflix.', 'hulu.', 'disney', 'hotstar',
+        'hbo', 'max.com', 'paramount', 'peacocktv', 'tv.apple', 'apple.com'
+      ].some(k => h.includes(k));
+    }catch(_e){ return false; }
+  }
+
 
   const scanned = new WeakSet();
   function evaluateMedia(el){
@@ -171,10 +181,11 @@
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const targetW = 96, targetH = 54;
     let blocked = false;
+    let taintedCount = 0;
     const thr = 0.35 - 0.2 * (Math.max(10, Math.min(100, sensitivity||60)) / 100);
     const tick = ()=>{
       if (!video.isConnected){ return; }
-      if (video.readyState < 2 || video.paused || video.currentTime===0){ setTimeout(tick, 800); return; }
+      if (video.readyState < 2){ setTimeout(tick, 800); return; }
       try{
         canvas.width = targetW; canvas.height = targetH;
         ctx.drawImage(video, 0, 0, targetW, targetH);
@@ -185,7 +196,15 @@
           mask(video);
           try{ video.pause(); video.currentTime = Math.max(0, video.currentTime - 0.1); }catch(_e){}
         }
-      }catch(_e){ /* Likely tainted canvas; skip sampling */ }
+      }catch(_e){
+        // Likely DRM/CORS tainted canvas (Prime/Netflix/etc.)
+        taintedCount++;
+        if (!blocked && taintedCount >= 2 && isStreamingHost()){
+          blocked = true;
+          mask(video);
+          try{ video.pause(); }catch(_e2){}
+        }
+      }
       setTimeout(tick, 1000);
     };
     setTimeout(tick, 600);
