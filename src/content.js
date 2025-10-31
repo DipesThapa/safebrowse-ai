@@ -210,6 +210,25 @@
     setTimeout(tick, 600);
   }
 
+  function collectVideosDeep(root){
+    const out = [];
+    try{
+      // Fast path for direct descendants
+      root.querySelectorAll && root.querySelectorAll('video').forEach(v=>out.push(v));
+      // Walk light DOM and recurse into open shadow roots
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+      let n = walker.currentNode;
+      while(n){
+        const el = /** @type {Element} */(n);
+        if (el.shadowRoot && el.shadowRoot.mode === 'open'){
+          try{ el.shadowRoot.querySelectorAll('video').forEach(v=>out.push(v)); }catch(_e){}
+        }
+        n = walker.nextNode();
+      }
+    }catch(_e){}
+    return out;
+  }
+
   function showInterstitial(reason){
     // Safely replace the document without using innerHTML
     const doc = document;
@@ -280,17 +299,18 @@
     // No page-level block: still protect by masking on-screen images/videos
     initMediaFilter();
     if (cfg.aggressive){
-      // Watch visible videos and sample frames periodically
-      const sel = 'video';
-      document.querySelectorAll(sel).forEach(v=>startVideoWatcher(v, cfg.sensitivity));
-      new MutationObserver((muts)=>{
-        muts.forEach(m=>{
-          m.addedNodes && m.addedNodes.forEach(n=>{
-            if (n instanceof HTMLVideoElement) startVideoWatcher(n, cfg.sensitivity);
-            if (n.querySelectorAll) n.querySelectorAll('video').forEach(v=>startVideoWatcher(v, cfg.sensitivity));
-          });
-        });
-      }).observe(document.documentElement, {subtree:true, childList:true});
+      // Watch visible videos and sample frames periodically (deep: includes open shadow roots)
+      const attachAll = ()=>{
+        try{ collectVideosDeep(document).forEach(v=>startVideoWatcher(v, cfg.sensitivity)); }catch(_e){}
+      };
+      attachAll();
+      new MutationObserver(()=>attachAll()).observe(document.documentElement, {subtree:true, childList:true});
+      // Catch dynamically played videos
+      document.addEventListener('play', (e)=>{
+        const t = e.target; if (t && t instanceof HTMLVideoElement) startVideoWatcher(t, cfg.sensitivity);
+      }, true);
+      // Periodic safety scan (some apps replace DOM trees frequently)
+      setInterval(attachAll, 2000);
     }
   }
 
