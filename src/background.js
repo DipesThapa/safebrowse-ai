@@ -18,13 +18,18 @@ async function initBadge(){
 }
 
 chrome.storage.onChanged.addListener((changes, area)=>{
-  if (area !== 'sync') return;
-  if (Object.prototype.hasOwnProperty.call(changes, 'enabled')){
-    setBadge(Boolean(changes.enabled.newValue));
+  if (area === 'sync'){
+    if (Object.prototype.hasOwnProperty.call(changes, 'enabled')){
+      setBadge(Boolean(changes.enabled.newValue));
+    }
+    if (Object.prototype.hasOwnProperty.call(changes, 'allowlist')){
+      rebuildDynamicRules();
+    }
   }
-  if (Object.prototype.hasOwnProperty.call(changes, 'allowlist')){
-    // Rebuild allow rules when allowlist changes
-    rebuildDynamicRules();
+  if (area === 'local'){
+    if (Object.prototype.hasOwnProperty.call(changes, 'userBlocklist')){
+      rebuildDynamicRules();
+    }
   }
 });
 
@@ -53,6 +58,8 @@ async function rebuildDynamicRules(){
   try{
     const cfg = await new Promise(r => chrome.storage.sync.get({ allowlist: [] }, r));
     const allowlist = Array.isArray(cfg.allowlist) ? cfg.allowlist : [];
+    const local = await new Promise(r => chrome.storage.local.get({ userBlocklist: [] }, r));
+    const userBlocklist = Array.isArray(local.userBlocklist) ? local.userBlocklist : [];
     const block = await loadJsonResource('data/blocklist.json');
     const blockDomains = (block && Array.isArray(block.domains)) ? block.domains : [];
 
@@ -70,15 +77,24 @@ async function rebuildDynamicRules(){
       });
     }
 
-    // Block rules for domains in blocklist
-    for(const d of blockDomains){
-      const rx = domainToRegex(String(d).trim().toLowerCase());
+    // Block rules for domains: packaged + user list (truncated to fit DNR limits)
+    const MAX_DYNAMIC = 29000; // conservative safety margin under Chrome's dynamic rule cap
+    const uniq = Array.from(new Set([ ...blockDomains, ...userBlocklist ]))
+      .map(s => String(s).trim().toLowerCase())
+      .filter(Boolean);
+    const room = MAX_DYNAMIC - rules.length - 100; // reserve a small buffer
+    const take = room > 0 ? uniq.slice(0, room) : [];
+    for(const d of take){
+      const rx = domainToRegex(d);
       rules.push({
         id: id++,
         priority: 10,
         action: { type: 'block' },
         condition: { regexFilter: rx, resourceTypes: ['main_frame'] }
       });
+    }
+    if (uniq.length > take.length){
+      console.warn('[Safeguard] Blocklist truncated for DNR capacity:', take.length, '/', uniq.length);
     }
 
     const existing = await chrome.declarativeNetRequest.getDynamicRules();

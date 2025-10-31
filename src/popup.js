@@ -4,6 +4,10 @@ const addAllow = document.getElementById('addAllow');
 const clearAllow = document.getElementById('clearAllow');
 const allowList = document.getElementById('allowList');
 const hint = document.getElementById('hint');
+const blocklistInput = document.getElementById('blocklistInput');
+const importBlocklist = document.getElementById('importBlocklist');
+const clearBlocklist = document.getElementById('clearBlocklist');
+const blockCount = document.getElementById('blockCount');
 // PIN removed — simplified UI
 
 function render(list){
@@ -38,6 +42,9 @@ chrome.storage.sync.get({enabled:true, allowlist:[]}, (cfg)=>{
   enabledEl.checked = cfg.enabled;
   render(cfg.allowlist||[]);
 });
+chrome.storage.local.get({userBlocklist:[]}, (cfg)=>{
+  updateBlockCount(Array.isArray(cfg.userBlocklist)? cfg.userBlocklist.length : 0);
+});
 
 enabledEl.addEventListener('change', async ()=>{
   chrome.storage.sync.set({enabled: enabledEl.checked});
@@ -63,4 +70,36 @@ addAllow.addEventListener('click', async ()=>{
 
 clearAllow.addEventListener('click', async ()=>{
   chrome.storage.sync.set({allowlist: []}, ()=>render([]));
+});
+
+// ----- Blocklist import (local storage) -----
+function parseBlocklist(text){
+  const out = [];
+  const seen = new Set();
+  (text||'').split(/\r?\n/).forEach(line=>{
+    const t = normalizeHost(line.replace(/^#.*$/,'').trim());
+    if(!t) return;
+    if(!validHostname(t)) return;
+    if(!seen.has(t)) { seen.add(t); out.push(t); }
+  });
+  return out;
+}
+function updateBlockCount(n){
+  if (blockCount) blockCount.textContent = `${n} domain${n===1?'':'s'}`;
+}
+
+importBlocklist.addEventListener('click', ()=>{
+  const list = parseBlocklist(blocklistInput.value);
+  chrome.storage.local.set({ userBlocklist: list }, ()=>{
+    updateBlockCount(list.length);
+    hint.style.color = '#166534';
+    hint.textContent = `Imported ${list.length} domains`;
+    setTimeout(()=>{ hint.style.color='#666'; hint.textContent='enter a hostname only (no http/https)'; }, 2500);
+  });
+});
+
+clearBlocklist.addEventListener('click', ()=>{
+  chrome.storage.local.set({ userBlocklist: [] }, ()=>{
+    updateBlockCount(0);
+  });
 });
