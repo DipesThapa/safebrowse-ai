@@ -4,6 +4,8 @@ const addAllow = document.getElementById('addAllow');
 const clearAllow = document.getElementById('clearAllow');
 const allowList = document.getElementById('allowList');
 const hint = document.getElementById('hint');
+const aggressiveEl = document.getElementById('aggressive');
+const sensitivityEl = document.getElementById('sensitivity');
 const blocklistInput = document.getElementById('blocklistInput');
 const importBlocklist = document.getElementById('importBlocklist');
 const clearBlocklist = document.getElementById('clearBlocklist');
@@ -38,9 +40,11 @@ function validHostname(s){
   return /^[a-z0-9-]+(\.[a-z0-9-]+)*$/.test(s);
 }
 
-chrome.storage.sync.get({enabled:true, allowlist:[]}, (cfg)=>{
+chrome.storage.sync.get({enabled:true, allowlist:[], aggressive:false, sensitivity:60}, (cfg)=>{
   enabledEl.checked = cfg.enabled;
   render(cfg.allowlist||[]);
+  aggressiveEl.checked = Boolean(cfg.aggressive);
+  if (typeof cfg.sensitivity === 'number') sensitivityEl.value = String(cfg.sensitivity);
 });
 chrome.storage.local.get({userBlocklist:[]}, (cfg)=>{
   updateBlockCount(Array.isArray(cfg.userBlocklist)? cfg.userBlocklist.length : 0);
@@ -48,6 +52,15 @@ chrome.storage.local.get({userBlocklist:[]}, (cfg)=>{
 
 enabledEl.addEventListener('change', async ()=>{
   chrome.storage.sync.set({enabled: enabledEl.checked});
+});
+
+aggressiveEl.addEventListener('change', ()=>{
+  chrome.storage.sync.set({ aggressive: aggressiveEl.checked });
+});
+
+sensitivityEl.addEventListener('input', ()=>{
+  const v = Math.max(10, Math.min(100, Number(sensitivityEl.value)||60));
+  chrome.storage.sync.set({ sensitivity: v });
 });
 
 addAllow.addEventListener('click', async ()=>{

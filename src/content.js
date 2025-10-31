@@ -75,6 +75,7 @@
     } catch(_e) {}
   }
 
+
   const scanned = new WeakSet();
   function evaluateMedia(el){
     if (!el || scanned.has(el)) return false; scanned.add(el);
@@ -105,6 +106,51 @@
       }
     });
     mo.observe(document.documentElement, { subtree: true, childList: true });
+  }
+
+  // --- Video frame heuristic (skin-tone ratio) ---
+  function rgbToYCbCr(r,g,b){
+    const cb = 128 - 0.168736*r - 0.331264*g + 0.5*b;
+    const cr = 128 + 0.5*r - 0.418688*g - 0.081312*b;
+    return { cb, cr };
+  }
+
+  function estimateSkinRatio(imgData){
+    try{
+      const d = imgData.data; let skin=0; const total = imgData.width*imgData.height;
+      for(let i=0;i<d.length;i+=4){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const {cb,cr} = rgbToYCbCr(r,g,b);
+        if (cb>77 && cb<127 && cr>133 && cr<173) skin++;
+      }
+      return skin/Math.max(1,total);
+    }catch(_e){ return 0; }
+  }
+
+  function startVideoWatcher(video, sensitivity){
+    if (!video || video.__sg_vwatch) return; video.__sg_vwatch = true;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const targetW = 96, targetH = 54;
+    let blocked = false;
+    const thr = 0.35 - 0.2 * (Math.max(10, Math.min(100, sensitivity||60)) / 100);
+    const tick = ()=>{
+      if (!video.isConnected){ return; }
+      if (video.readyState < 2 || video.paused || video.currentTime===0){ setTimeout(tick, 800); return; }
+      try{
+        canvas.width = targetW; canvas.height = targetH;
+        ctx.drawImage(video, 0, 0, targetW, targetH);
+        const data = ctx.getImageData(0,0,targetW,targetH);
+        const ratio = estimateSkinRatio(data);
+        if (ratio >= thr && !blocked){
+          blocked = true;
+          mask(video);
+          try{ video.pause(); video.currentTime = Math.max(0, video.currentTime - 0.1); }catch(_e){}
+        }
+      }catch(_e){ /* Likely tainted canvas; skip sampling */ }
+      setTimeout(tick, 1000);
+    };
+    setTimeout(tick, 600);
   }
 
   function showInterstitial(reason){
@@ -154,7 +200,7 @@
   }
 
   async function scan(){
-    const cfg = await new Promise(r => chrome.storage.sync.get({enabled:true, allowlist:[]}, r));
+    const cfg = await new Promise(r => chrome.storage.sync.get({enabled:true, allowlist:[], aggressive:false, sensitivity:60}, r));
     if(!cfg.enabled) return;
     const host = getHost();
     try {
@@ -170,6 +216,19 @@
 
     // No page-level block: still protect by masking on-screen images/videos
     initMediaFilter();
+    if (cfg.aggressive){
+      // Watch visible videos and sample frames periodically
+      const sel = 'video';
+      document.querySelectorAll(sel).forEach(v=>startVideoWatcher(v, cfg.sensitivity));
+      new MutationObserver((muts)=>{
+        muts.forEach(m=>{
+          m.addedNodes && m.addedNodes.forEach(n=>{
+            if (n instanceof HTMLVideoElement) startVideoWatcher(n, cfg.sensitivity);
+            if (n.querySelectorAll) n.querySelectorAll('video').forEach(v=>startVideoWatcher(v, cfg.sensitivity));
+          });
+        });
+      }).observe(document.documentElement, {subtree:true, childList:true});
+    }
   }
 
   scan();
