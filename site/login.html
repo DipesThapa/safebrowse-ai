@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Departmental Store Portal – Login</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="header--compact">
+    <div class="container">
+      <div class="logo">
+        <img src="../assets/icons/icon128.png" alt="Safeguard logo">
+        <div>
+          <span class="pill">Store control centre</span>
+          <h1>Departmental Store Login</h1>
+          <p>Access inventory, billing, and staff tools through a secure, role-based control centre. Ideal for XAMPP-hosted deployments.</p>
+        </div>
+      </div>
+      <nav>
+        <a href="index.html">Overview</a>
+        <a href="features.html">Features</a>
+        <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="login.html" aria-current="page">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container auth-layout">
+    <section class="card auth-card">
+      <div class="card__header">
+        <h2>Sign in</h2>
+        <p class="section__subtitle">Use your departmental store credentials to continue.</p>
+      </div>
+      <form class="auth-form" method="post" action="/login">
+        <div class="form-group">
+          <label for="email">Work email</label>
+          <input class="input" type="email" id="email" name="email" required placeholder="manager@store.local">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input class="input" type="password" id="password" name="password" required placeholder="••••••••">
+        </div>
+        <div class="form-actions">
+          <label class="checkbox">
+            <input type="checkbox" name="remember" value="true"> Remember this device
+          </label>
+          <a class="cta-link" href="#">Forgot password?</a>
+        </div>
+        <button class="cta cta--full" type="submit">Sign in to dashboard</button>
+        <p class="form-hint">Hosted on XAMPP? Point this form to your local PHP handler (for example, <code>http://localhost/safebrowse-ai/login.php</code>) and wire it to your user table.</p>
+      </form>
+    </section>
+
+    <section class="card auth-summary">
+      <h2 class="section__title">What you can manage</h2>
+      <p class="section__subtitle">After signing in, administrators can configure the full departmental store stack.</p>
+      <ul class="auth-bullets">
+        <li><strong>Inventory & SKU control</strong> – track stock, adjust reorder thresholds, and run supplier checks.</li>
+        <li><strong>Billing & POS</strong> – reconcile sales, view receipts, and monitor payment integrations.</li>
+        <li><strong>Staff access</strong> – invite team members, assign roles (cashier, manager, auditor), and reset credentials.</li>
+        <li><strong>Reports</strong> – export daily sales, inventory valuation, and compliance logs for audits.</li>
+      </ul>
+      <div class="status-hint">
+        <span class="status-dot status-dot--up"></span>
+        <div>
+          <strong>Secure by default.</strong> Sessions expire after inactivity, and two-factor prompts can be added on the backend.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div>© <span id="year"></span> CyberHeroez CIC. All rights reserved.</div>
+      <div>
+        <a href="privacy.html">Privacy</a> ·
+        <a href="support.html">Support</a> ·
+        <a href="https://github.com/DipesThapa/safebrowse-ai" target="_blank" rel="noopener">GitHub</a> ·
+        <a href="https://cyberheroez.co.uk/" target="_blank" rel="noopener noreferrer">CyberHeroez CIC</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/site.js"></script>
+</body>
+</html>
